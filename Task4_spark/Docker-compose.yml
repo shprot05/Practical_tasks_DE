@@ -1,0 +1,33 @@
+version: "3"
+
+volumes:
+  pgdata:
+
+services:
+  pagila:
+    image: postgres:17
+    container_name: pagila
+    env_file:
+      - .env
+    volumes:
+      - ./pagila-schema.sql:/docker-entrypoint-initdb.d/1-pagila-schema.sql
+      - ./pagila-data.sql:/docker-entrypoint-initdb.d/2-pagila-data.sql
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  spark-app:
+    build: .
+    container_name: my_spark_job
+    depends_on:
+      pagila:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=pagila
